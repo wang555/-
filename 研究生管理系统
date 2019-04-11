@@ -1,0 +1,479 @@
+import pymongo
+import easygui as gui
+import sys
+import os
+import pandas
+import xlrd
+import pandas as pd
+import csv
+
+#测试用例
+"""
+id                    name               age          sc         proc
+2016205550            张三                20          计科          1
+2016205551            李四                21          软工          2  
+2016205553            管二                20          网工          3
+"""
+
+client = pymongo.MongoClient(host = 'localhost', port = 27017)
+collection = client.test    #连接test数据库  没有自动创建
+db = collection.student   #使用student集合  没有自动创建
+db6 = collection.message
+db7 = collection.I_p
+db8 = collection.message_all
+# collection.student.drop()
+# collection.message.drop()
+# collection.message_all.drop()
+# collection.I_p.drop()
+ip = {}
+num = 1
+message = {}
+id = []
+name = []
+age = []
+sc = []
+proc = []
+living_message = []
+living_id =[]
+
+
+
+for i in db.find():
+    if i['id'] not in id:
+        id.append(i['id'])
+for iiii in db7.find():
+    print(iiii)
+
+
+
+
+def show():
+    for i in db.find():
+            print(i)
+    for j in db6.find():
+        print(j)
+    for k in db8.find():
+        print(k)
+
+
+
+def login():
+    global id
+    Id1 = gui.enterbox(msg="请输入你的学号",title="学生注册系统")
+    while Id1 not in id:
+        gui.msgbox(msg="学号或密码输入错误,请重新输入",title="学生注册系统",ok_button="继续")
+        Id1 = gui.enterbox(msg="请输入你的学号",title="学生注册系统")
+    password1 = gui.enterbox(msg="请设置你的密码",title="学生注册系统")
+    password2 = gui.enterbox(msg="请重新输入你的密码",title="学生注册系统")
+    while password1 != password2:
+        gui.msgbox(msg="两次密码不一致,请重新设置",title="学生注册系统",ok_button="继续")
+        password1 = gui.enterbox(msg="请设置你的密码",title="学生注册系统")
+        password2 = gui.enterbox(msg="请重新输入你的密码",title="学生注册系统")
+
+    stu = {}
+    stu['id'] = Id1
+    stu[Id1] = password1
+    result = db7.insert_one(stu)
+    stu_load()
+
+
+
+#学生模块
+
+#学生登录模块
+def stu_load():
+
+     idd = []
+     password = {}
+     global id
+     for ww in db7.find():
+         password[ww['id']] = ww[ww['id']]
+     print(password)
+     mess = []
+     for i in db6.find():
+        idd.append(i['id'])
+     msg = "请输入学号和密码"
+     title = "用户登录接口"
+     user_info = []
+     user_info = gui.multpasswordbox(msg,title,("学号","密码"))
+
+     while user_info[0] not in id or user_info[1] != password[user_info[0]]:
+            title = gui.msgbox(msg="学号或密码输入错误,请重新输入",title="学生管理系统",ok_button="继续")
+            msg = "请输入学号和密码"
+            title = "用户登录接口"
+            user_info = []
+            user_info = gui.multpasswordbox(msg,title,("学号","密码"))
+
+     if user_info[0] in idd:
+         mee = db6.find_one({'id' : user_info[0]})
+         index = mee['message']
+         gui.msgbox(msg="您好,您的导师有给您留言,请点击继续查看",title="学生管理系统",ok_button="继续")
+         gui.msgbox(msg=index,title="学生管理系统",ok_button="继续")
+         db6.remove({'id' : user_info[0]})
+     ii = db8.find_one({'id' : user_info[0]})
+     if ii != None:
+        wwwww = ii[user_info[0]]
+        gui.msgbox(msg="您好,有导师的全体留言,请点击继续查看",title="学生管理系统",ok_button="继续")
+        gui.msgbox(msg=wwwww,title="学生管理系统",ok_button="继续")
+        db8.remove({'id' : user_info[0]})
+     show()
+     stu_choice(user_info[0])
+
+#功能选择模块
+def stu_choice(id):
+    choice = gui.buttonbox("请选择你需要的操作",choices=("查询", "修改", "退出"))
+    if choice == '查询':
+       stu_search(id)
+    elif choice == '修改':
+       stu_update(id)
+    elif choice == '退出':
+        exit()
+
+
+#查询模块
+def stu_search(id):
+
+    if db.find_one({'id' : id}) != None:
+        xin_xi = {}
+        find = db.find_one({'id' : id})
+        xin_xi['id'] = find['id']
+        xin_xi['name'] = find['name']
+        xin_xi['age'] = find['age']
+        xin_xi['sc'] = find['sc']
+        xin_xi['proc'] = find['proce']
+        gui.msgbox(msg=xin_xi,title="学生管理系统",ok_button="继续")
+    else:
+        gui.msgbox(msg='抱歉,数据库中查无此人,请检查您输入的学号是否正确',title="学生管理系统",ok_button="继续")
+    stu_choice()
+
+#修改模块
+def stu_update(my_id):
+     global id
+     ch = gui.buttonbox("请选择你需要修改的选项",choices=("id","name","age", 'sc', 'proc', 'cancel'))
+     while ch == 'cancel':
+        stu_choice(my_id)
+     ud = gui.enterbox(msg="请输入修改后的信息",title="学生管理系统")
+     mes = {'id' : my_id}
+     conditions = db.find_one({'id' : my_id})
+     conditions[ch] = ud
+     result = db.update_one(mes, {'$set': conditions})
+     if ch == 'id':
+         index = id.index(my_id)
+         id[index] = ud
+     show()
+     stu_choice(my_id)
+
+
+
+#导师模块
+
+#导师登陆模块
+def techer_load():
+     msg = "请输入教师号和密码"
+     title = "用户登录接口"
+     user_info = []
+     user_info = gui.multpasswordbox(msg,title,("教师号","密码"))
+     if user_info == None:
+        main()
+     while user_info[1] != '124953':
+            title = gui.msgbox(msg="教师号或密码输入错误,请重新输入",title="学生管理系统",ok_button="继续")
+            msg = "请输入教师号和密码"
+            title = "用户登录接口"
+            user_info = []
+            user_info = gui.multpasswordbox(msg,title,("教师号","密码"))
+     teacher_choice()
+
+#导师功能选择模块
+def teacher_choice():
+    choice = gui.buttonbox("请选择你需要的操作",choices=("特定查询", "查询所有", "留言", '全体留言', "退出"))
+    if choice == None:
+         main()
+    elif choice == '特定查询':
+       teacher_search()
+    elif choice == '留言':
+        Living_message()
+    elif choice == '查询所有':
+        teacher_search_all()
+    elif choice == '全体留言':
+        Living_message_all()
+    elif choice == '退出':
+        exit()
+
+#特定查询模块
+def teacher_search():
+    mes = gui.enterbox(msg="请输入想要查找的学生学号",title="学生管理系统")
+    while mes == None:
+        teacher_choice()
+    if db.find_one({'id' : mes}) != None:
+        xin_xi = {}
+        find = db.find_one({'id' : mes})
+        xin_xi['id'] = find['id']
+        xin_xi['name'] = find['name']
+        xin_xi['age'] = find['age']
+        xin_xi['sc'] = find['sc']
+        xin_xi['proc'] = find['proce']
+
+        gui.msgbox(msg=xin_xi,title="学生管理系统",ok_button="继续")
+    else:
+        gui.msgbox(msg='抱歉,数据库中查无此人,请检查您输入的学号是否正确',title="学生管理系统",ok_button="继续")
+    teacher_choice()
+
+#查询所有人模块
+def teacher_search_all():
+    for i in id:
+        mes = db.find_one({'id' : i})
+        xin_xi = {}
+        xin_xi['id'] = mes['id']
+        xin_xi['name'] = mes['name']
+        xin_xi['age'] = mes['age']
+        xin_xi['sc'] = mes['sc']
+        xin_xi['proc'] = mes['proce']
+        gui.msgbox(msg=xin_xi,title="学生管理系统",ok_button="继续")
+    teacher_choice()
+
+#留言模块
+def Living_message():
+    global living_id, living_message, num
+    Is = '是'
+    while Is == '是':
+        Is = gui.buttonbox("您是否要给研究生留言",choices=("是", "否"))
+        if Is == '否':
+            break
+        living_IId = gui.enterbox(msg="请输入您想要留言的学生号",title="学生管理系统")
+        living_MMessage = gui.enterbox(msg="请输入您的留言内容",title="学生管理系统")
+        s = {}
+        s['id'] = living_IId
+        s['message'] = living_MMessage
+        db6.insert_one(s)
+    show()
+    teacher_choice()
+
+def Living_message_all():
+    global id
+    iddd = []
+    for w in db7.find():
+        iddd.append(w['id'])
+    living_MMessage = gui.enterbox(msg="请输入您对所有人的留言内容",title="学生管理系统")
+    for i in id:
+
+        if i in iddd:
+            s = {}
+            s['id'] = i
+            s[i] = living_MMessage
+            db8.insert(s)
+    show()
+    teacher_choice()
+
+
+
+#管理员模块
+def manage_load():
+    msg = "请输入用户名和密码"
+    title = "用户登录接口"
+    user_info = []
+    user_info = gui.multpasswordbox(msg,title,("用户名","密码"))
+    if user_info == None:
+        main()
+    while user_info[0] != 'AAA' or user_info[1] != '124953':
+        title = gui.msgbox(msg="用户名或密码输入错误,请重新输入",title="学生管理系统",ok_button="继续")
+        msg = "请输入用户名和密码"
+        title = "用户登录接口"
+        user_info = []
+        user_info = gui.multpasswordbox(msg,title,("用户名","密码"))
+    manage_choice()
+
+#插入信息模块
+def insert_message():
+    global id, name, age, sc, proc
+    student = {}
+
+    msg = "请输入学生的学号, 姓名, 年龄, 学院以及进度)"
+    title = "输入学生信息"
+    fieldNames = ["*学号","*姓名","年龄","*学院","进度"]
+    mes = []
+    mes = gui.multenterbox(msg,title,fieldNames)
+
+    id.append(mes[0])
+
+
+    while mes == None:
+        manage_choice()
+    student['id'] = mes[0]
+    # id.append(fieldValues[0])
+    student['name'] = mes[1]
+    # name.append(fieldValues[1])
+    student['age'] = mes[2]
+    # age.append(fieldValues[2])
+    student['sc'] = mes[3]
+    # sc.append(fieldValues[3])
+    student['proce'] = mes[4]
+    # total_grade.append(fieldValues[4])
+    result = db.insert_one(student)
+    show()
+    manage_choice()
+
+
+#修改模块
+def update():
+     global id
+     # ch = gui.buttonbox("请选择你需要修改的选项",choices=("id","name","age", 'sc', 'proc', 'cancel'))
+     # while ch == 'cancel':
+     #    manage_choice()
+     Id = gui.enterbox(msg="请输入想要修改的学生的学号",title="学生管理系统")
+     if Id == 'cancel':
+         manage_choice()
+     while Id not in id:
+         gui.msgbox(msg="您输入的学号有误,请重新输入",title="学生管理系统")
+         Id = gui.enterbox(msg="请输入想要修改的学生的学号",title="学生管理系统")
+         if Id == 'cancel':
+            manage_choice()
+         # while Id != None:
+         #    Id = gui.enterbox(msg="请输入想要修改的学生的学号",title="学生管理系统")
+     ch = gui.buttonbox("请选择你需要修改的选项",choices=("id","name","age", 'sc', 'proc', 'cancel'))
+     ud = gui.enterbox(msg="请输入修改后的信息",title="学生管理系统")
+     mes = {'id' : Id}
+     conditions = db.find_one({'id' : Id})
+     conditions[ch] = ud
+     result = db.update_one(mes, {'$set': conditions})
+     if ch == 'id':
+         index = id.index(Id)
+         id[index] = ud
+     show()
+     manage_choice()
+
+
+#查询模块
+def search():
+    mes = gui.enterbox(msg="请输入想要查找的学生学号",title="学生管理系统")
+    while mes == None:
+        manage_choice()
+    if db.find_one({'id' : mes}) != None:
+        www = db.find_one({'id' : mes})
+        xxx = {}
+        xxx['id'] = www['id']
+        xxx['name'] = www['name']
+        xxx['age'] = www['age']
+        xxx['sc'] = www['sc']
+        xxx['proc'] = www['proce']
+        gui.msgbox(msg = xxx,title="学生管理系统",ok_button="继续")
+    else:
+        gui.msgbox(msg='抱歉,数据库中查无此人,请检查您输入的学号是否正确',title="学生管理系统",ok_button="继续")
+    manage_choice()
+
+#删除模块
+def  delete():
+    keys = gui.enterbox(msg="请输入你需要删除的学生的id",title="学生管理系统")
+    while keys == None:
+        manage_choice()
+    global id
+    if keys in id:
+        id.remove(keys)
+    result = db.delete_one({'id' : keys})
+    db7.delete_one({'id' : keys})
+
+    # print(id)
+    gui.msgbox(msg = '删除成功',title="学生管理系统",ok_button="继续")
+    show()
+    manage_choice()
+
+#打印模块
+def dayin_all():
+    global message, id, name, age, sc, proc
+    key = gui.enterbox(msg="请给文件名名",title="学生管理系统")
+    for i in id:
+        mes = db.find_one({'id' : i})
+        name.append(mes['name'])
+        age.append(mes['age'])
+        sc.append(mes['sc'])
+        proc.append(mes['proce'])
+    message['id'] = id
+    message['name'] = name
+    message['age'] = age
+    message['sc'] = sc
+    message['proc'] = proc
+    df = pandas.DataFrame(message, columns = ['id', 'name', 'age', 'sc', 'proc'])
+    df.to_excel('%s.xlsx'%key)
+    gui.msgbox(msg="打印成功,以打印成Excel表格形式！",title="学生管理系统",ok_button="继续")
+    # pandas.read_excel('%s.xlsx'%key)
+    manage_choice()
+
+#特定打印模块
+def dayin_one():
+    idd = []
+    nname = []
+    ssc = []
+    aage = []
+    pproc = []
+    Id = gui.enterbox(msg="请输入你需要打印的学生的id",title="学生管理系统")
+    while Id not in id:
+         gui.msgbox(msg="您输入的学号有误, 请重新输入",title="学生管理系统",ok_button="继续")
+         Id = gui.enterbox(msg="请输入你需要打印的学生的id",title="学生管理系统")
+    mes = db.find_one({'id' : Id})
+    idd.append(Id)
+    nname.append(mes['name'])
+    ssc.append(mes['sc'])
+    aage.append(mes['age'])
+    pproc.append(mes['proce'])
+    Mes = {}
+    Mes['id'] = idd
+    Mes['name'] = nname
+    Mes['age'] = aage
+    Mes['sc'] = ssc
+    Mes['proc'] = pproc
+    print(Mes)
+    df = pd.DataFrame(Mes, columns = ['id', 'name', 'age', 'sc', 'proc'])
+    df.to_excel('%s.xlsx'%Id)
+    gui.msgbox(msg="打印成功,以打印成Excel表格形式！",title="学生管理系统",ok_button="继续")
+    manage_choice()
+
+
+#管理员功能选择模块
+def manage_choice():
+     choice = gui.buttonbox("请选择你需要的操作",choices=("插入","修改", "查询", '删除', '特定打印',  '打印全部', '退出'))
+     if choice == None:
+         main()
+     elif choice == '插入':
+        insert_message()
+     elif choice == '修改':
+        update()
+     elif choice == '查询':
+        search()
+     elif choice == '删除':
+        delete()
+     elif choice == '打印全部':
+        dayin_all()
+     elif choice == '特定打印':
+         dayin_one()
+     elif choice == '退出':
+        exit()
+
+def exit():
+    title = gui.msgbox(msg="感谢你的使用,再见！",title="学生管理系统",ok_button="继续")
+    sys.exit()
+
+
+def main():
+    choice = gui.buttonbox("您的身份是:",choices=('管理员', '导师', '学生'))
+    if choice == None:
+        exit()
+    elif choice == '管理员':
+       manage_load()
+    elif choice == '导师':
+       techer_load()
+    elif choice == '学生':
+       choice2 = gui.buttonbox('研究生管理系统', choices=('注册', '登录', '返回'))
+       if choice2 == '登录':
+          stu_load()
+       elif choice2 == '注册':
+           login()
+       elif choice2 == '返回':
+           main()
+
+
+if __name__ == '__main__':
+    show()
+    main()
+
+
+
+
